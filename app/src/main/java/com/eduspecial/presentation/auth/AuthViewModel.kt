@@ -1,0 +1,218 @@
+package com.eduspecial.presentation.auth
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.eduspecial.data.repository.AuthRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class AuthCurrentUser(
+    val uid: String,
+    val email: String?,
+    val displayName: String?
+)
+
+data class AuthUiState(
+    val email: String = "",
+    val password: String = "",
+    val displayName: String = "",
+    val isLoginMode: Boolean = true,
+    val isLoading: Boolean = false,
+    val isAuthenticated: Boolean = false,
+    val error: String? = null,
+    val emailError: String? = null,
+    val passwordError: String? = null,
+    val isEmailVerified: Boolean = false,
+    val isPasswordResetSent: Boolean = false,
+    val currentUser: AuthCurrentUser? = null
+)
+
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(AuthUiState())
+    val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    init {
+        if (authRepository.isLoggedIn()) {
+            _uiState.update {
+                it.copy(
+                    isAuthenticated = true,
+                    isEmailVerified = authRepository.isEmailVerified(),
+                    currentUser = AuthCurrentUser(
+                        uid = authRepository.getCurrentUserId().orEmpty(),
+                        email = authRepository.getCurrentUserEmail(),
+                        displayName = authRepository.getCurrentDisplayName()
+                    )
+                )
+            }
+        }
+    }
+
+    fun onEmailChange(email: String) =
+        _uiState.update { it.copy(email = email, emailError = null, error = null) }
+
+    fun onPasswordChange(pw: String) =
+        _uiState.update { it.copy(password = pw, passwordError = null, error = null) }
+
+    fun onDisplayNameChange(name: String) =
+        _uiState.update { it.copy(displayName = name) }
+
+    fun switchToLogin() = _uiState.update { it.copy(isLoginMode = true, error = null) }
+    fun switchToRegister() = _uiState.update { it.copy(isLoginMode = false, error = null) }
+
+    fun login() {
+        val state = _uiState.value
+        if (!validate(state)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            authRepository.login(state.email.trim(), state.password)
+                .onSuccess { refreshCurrentUser(authenticated = true) }
+                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) } }
+        }
+    }
+
+    fun register() {
+        val state = _uiState.value
+        if (!validate(state)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            authRepository.register(
+                email = state.email.trim(),
+                password = state.password,
+                displayName = state.displayName.trim().ifEmpty { state.email.substringBefore("@") }
+            )
+                .onSuccess { refreshCurrentUser(authenticated = true) }
+                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) } }
+        }
+    }
+
+    /** Send password reset using the email currently in uiState. */
+    fun sendPasswordReset() {
+        val email = _uiState.value.email.trim()
+        if (email.isBlank()) {
+            _uiState.update { it.copy(emailError = "أدخل بريدك الإلكتروني أولاً") }
+            return
+        }
+        sendPasswordReset(email)
+    }
+
+    /** Send password reset to the supplied email. */
+    fun sendPasswordReset(email: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null, isPasswordResetSent = false) }
+            authRepository.sendPasswordReset(email)
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(isLoading = false, isPasswordResetSent = true)
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) }
+                }
+        }
+    }
+
+    fun clearPasswordResetState() {
+        _uiState.update { it.copy(isPasswordResetSent = false, error = null) }
+    }
+
+    fun sendEmailVerification() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            authRepository.sendEmailVerification()
+                .onSuccess { _uiState.update { it.copy(isLoading = false) } }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) }
+                }
+        }
+    }
+
+    fun checkEmailVerification() {
+        viewModelScope.launch {
+            authRepository.reloadUser()
+            _uiState.update {
+                it.copy(
+                    isEmailVerified = authRepository.isEmailVerified(),
+                    currentUser = AuthCurrentUser(
+                        uid = authRepository.getCurrentUserId().orEmpty(),
+                        email = authRepository.getCurrentUserEmail(),
+                        displayName = authRepository.getCurrentDisplayName()
+                    )
+                )
+            }
+        }
+    }
+
+    /** Complete Google sign-in with the ID token returned by GoogleSignInClient. */
+    fun signInWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            authRepository.signInWithGoogle(idToken)
+                .onSuccess { refreshCurrentUser(authenticated = true) }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) }
+                }
+        }
+    }
+
+    /** Surface an error from the Google sign-in UI flow (cancel, no network, etc). */
+    fun onGoogleSignInFailed(message: String) {
+        _uiState.update { it.copy(isLoading = false, error = message) }
+    }
+
+    fun continueAsGuest() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            authRepository.signInAnonymously()
+                .onSuccess { refreshCurrentUser(authenticated = true) }
+                .onFailure { _uiState.update { it.copy(isAuthenticated = true, isLoading = false) } }
+        }
+    }
+
+    private fun refreshCurrentUser(authenticated: Boolean) {
+        _uiState.update {
+            it.copy(
+                isAuthenticated = authenticated,
+                isLoading = false,
+                isEmailVerified = authRepository.isEmailVerified(),
+                currentUser = AuthCurrentUser(
+                    uid = authRepository.getCurrentUserId().orEmpty(),
+                    email = authRepository.getCurrentUserEmail(),
+                    displayName = authRepository.getCurrentDisplayName()
+                )
+            )
+        }
+    }
+
+    private fun validate(state: AuthUiState): Boolean {
+        var valid = true
+        val emailResult = com.eduspecial.utils.InputSanitizer.validateEmail(state.email)
+        if (emailResult.isFailure) {
+            _uiState.update { it.copy(emailError = "بريد إلكتروني غير صحيح") }
+            valid = false
+        }
+        val passwordResult = com.eduspecial.utils.InputSanitizer.validatePassword(state.password)
+        if (passwordResult.isFailure) {
+            _uiState.update { it.copy(passwordError = "كلمة المرور 6 أحرف على الأقل") }
+            valid = false
+        }
+        return valid
+    }
+
+    private fun mapError(msg: String?): String = when {
+        msg == null -> "حدث خطأ غير متوقع"
+        msg.contains("user-not-found") || msg.contains("wrong-password") ||
+        msg.contains("INVALID_LOGIN_CREDENTIALS") -> "البريد أو كلمة المرور غير صحيحة"
+        msg.contains("email-already-in-use") -> "هذا البريد مسجّل بالفعل"
+        msg.contains("network") || msg.contains("Network") -> "تحقق من اتصال الإنترنت"
+        msg.contains("too-many-requests") -> "محاولات كثيرة — انتظر قليلاً"
+        else -> "حدث خطأ: $msg"
+    }
+}

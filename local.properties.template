@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# EduSpecial — local.properties template
+# DO NOT COMMIT local.properties. It is listed in .gitignore.
+# Copy this file to local.properties and fill in your real values.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Android SDK path (set automatically by Android Studio)
+sdk.dir=/Users/yourname/Library/Android/sdk
+
+# ── Backend API ───────────────────────────────────────────────────────────────
+# The HuggingFace Space URL — no need to change this
+BASE_API_URL=https://nopoh22-eduspecial-api.hf.space/api/v1/
+
+# ── App API Key ───────────────────────────────────────────────────────────────
+# Must match APP_API_KEY secret in HuggingFace Space Settings → Secrets
+# Ask the project owner for this value
+APP_API_KEY=
+
+# ── Cloudinary ────────────────────────────────────────────────────────────────
+# Only cloud_name is needed in the Android app (for MediaManager init + URL generation)
+# API_KEY and API_SECRET live on the backend (HuggingFace) only — NOT needed here
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+
+# ── Algolia Search ────────────────────────────────────────────────────────────
+# ALGOLIA_APP_ID and ALGOLIA_SEARCH_KEY are used directly by the Android search client
+# ALGOLIA_ADMIN_KEY lives on the backend (HuggingFace) only — NOT needed here
+ALGOLIA_APP_ID=your_algolia_app_id
+ALGOLIA_SEARCH_KEY=your_search_only_api_key
+
+# ── Firebase ──────────────────────────────────────────────────────────────────
+# Place google-services.json in the app/ folder (already in .gitignore)
+# Download from: https://console.firebase.google.com/project/eduspecial/settings/general

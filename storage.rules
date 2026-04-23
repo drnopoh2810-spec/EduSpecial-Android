@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// Cloud Storage rules for the EduSpecial project.
+// - Anyone (including guest/anonymous users) can read public assets.
+// - Only authenticated users can upload, and only into their own /users/<uid>/ folder
+//   or the shared /uploads/<uid>/ folder, with size + content-type limits.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Public read for content used inside flashcards / Q&A (images, audio, video).
+    match /public/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 25 * 1024 * 1024 // 25 MB max
+                   && (
+                     request.resource.contentType.matches('image/.*') ||
+                     request.resource.contentType.matches('audio/.*') ||
+                     request.resource.contentType.matches('video/.*')
+                   );
+    }
+
+    // Per-user folders (avatars, drafts).
+    match /users/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Pending uploads created by Cloudinary fallback — owner-only.
+    match /uploads/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default deny.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

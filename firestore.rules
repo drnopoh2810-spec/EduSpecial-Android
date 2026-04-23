@@ -1,0 +1,84 @@
+rules_version = '2';
+
+// Production-ready Firestore rules for EduSpecial.
+// Replaces the open "allow read,write if request.time < ..." starter rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper functions ────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'MODERATOR'];
+    }
+
+    // ─── Users ───────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      // The user can create / update their own profile, but cannot escalate role.
+      allow create: if isOwner(userId)
+                    && (!('role' in request.resource.data) || request.resource.data.role == 'USER');
+      allow update: if (isOwner(userId)
+                       && (!('role' in request.resource.data)
+                           || request.resource.data.role == resource.data.role))
+                    || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ─── Public content: Flashcards & Questions ──────────────────────────
+    match /flashcards/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin()
+                            || (isSignedIn() && resource.data.contributor == request.auth.uid);
+    }
+    match /questions/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin()
+                            || (isSignedIn() && resource.data.contributor == request.auth.uid);
+    }
+    match /answers/{id} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin()
+                            || (isSignedIn() && resource.data.contributor == request.auth.uid);
+    }
+
+    // ─── Per-user data ───────────────────────────────────────────────────
+    match /user_tokens/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    match /bookmarks/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+    match /security_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+    match /notification_logs/{id} {
+      allow read: if isAdmin();
+      allow write: if false; // written only by Cloud Functions (admin SDK bypasses rules)
+    }
+
+    // ─── Moderation queue ────────────────────────────────────────────────
+    match /pending_submissions/{id} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.contributor == request.auth.uid);
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── Default deny ────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

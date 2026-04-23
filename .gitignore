@@ -1,0 +1,28 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+*.jks
+*.keystore
+
+# Python scripts (Cloud Shell utilities)
+*.py
+tok.tmp
+
+# Playwright logs
+.playwright-mcp/
+
+# Firebase temp
+.firebaserc
+
+# Replit assets — never commit secrets shared during chat sessions
+attached_assets/
+.local/
+replit.md
+public/
