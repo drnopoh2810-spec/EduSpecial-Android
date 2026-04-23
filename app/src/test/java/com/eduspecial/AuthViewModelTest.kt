@@ -1,6 +1,9 @@
 package com.eduspecial
 
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import com.eduspecial.data.remote.secure.RuntimeConfig
+import com.eduspecial.data.remote.secure.RuntimeConfigProvider
+import com.eduspecial.data.remote.secure.FirebaseConfigDto
 import com.eduspecial.data.repository.AuthRepository
 import com.eduspecial.presentation.auth.AuthViewModel
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -9,6 +12,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.*
 import org.junit.After
 import org.junit.Before
@@ -24,14 +28,19 @@ class AuthViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
     private lateinit var authRepository: AuthRepository
+    private lateinit var runtimeConfigProvider: RuntimeConfigProvider
+    private lateinit var runtimeConfigFlow: MutableStateFlow<RuntimeConfig?>
     private lateinit var viewModel: AuthViewModel
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         authRepository = mock()
+        runtimeConfigProvider = mock()
+        runtimeConfigFlow = MutableStateFlow(null)
         whenever(authRepository.isLoggedIn()).thenReturn(false)
-        viewModel = AuthViewModel(authRepository)
+        whenever(runtimeConfigProvider.config).thenReturn(runtimeConfigFlow)
+        viewModel = AuthViewModel(authRepository, runtimeConfigProvider)
     }
 
     @After
@@ -54,8 +63,33 @@ class AuthViewModelTest {
     @Test
     fun `initial state is authenticated when already logged in`() {
         whenever(authRepository.isLoggedIn()).thenReturn(true)
-        val vm = AuthViewModel(authRepository)
+        val vm = AuthViewModel(authRepository, runtimeConfigProvider)
         vm.uiState.value.isAuthenticated.shouldBeTrue()
+    }
+
+    @Test
+    fun `google sign in disabled when client id is missing`() {
+        viewModel.isGoogleSignInEnabled.value.shouldBeFalse()
+    }
+
+    @Test
+    fun `google sign in enabled when client id is valid`() {
+        runtimeConfigFlow.value = RuntimeConfig(
+            firebase = FirebaseConfigDto(
+                webClientId = "demo.apps.googleusercontent.com"
+            )
+        )
+        viewModel.isGoogleSignInEnabled.value.shouldBeTrue()
+    }
+
+    @Test
+    fun `google sign in disabled when client id is placeholder`() {
+        runtimeConfigFlow.value = RuntimeConfig(
+            firebase = FirebaseConfigDto(
+                webClientId = "REQUIRED_ANDROID_CLIENT_ID.apps.googleusercontent.com"
+            )
+        )
+        viewModel.isGoogleSignInEnabled.value.shouldBeFalse()
     }
 
     // ─── Mode Switching ───────────────────────────────────────────────────────
@@ -136,7 +170,7 @@ class AuthViewModelTest {
     @Test
     fun `login with valid credentials calls repository`() = runTest {
         whenever(authRepository.login(any(), any()))
-            .thenReturn(Result.success(Unit))
+            .thenReturn(Result.success("uid-1"))
         viewModel.onEmailChange("valid@email.com")
         viewModel.onPasswordChange("password123")
         viewModel.login()
@@ -146,7 +180,7 @@ class AuthViewModelTest {
     @Test
     fun `successful login sets isAuthenticated`() = runTest {
         whenever(authRepository.login(any(), any()))
-            .thenReturn(Result.success(Unit))
+            .thenReturn(Result.success("uid-1"))
         viewModel.onEmailChange("valid@email.com")
         viewModel.onPasswordChange("password123")
         viewModel.login()
@@ -189,5 +223,113 @@ class AuthViewModelTest {
         viewModel.onEmailChange("valid@email.com")
         viewModel.sendPasswordReset()
         verify(authRepository).sendPasswordReset("valid@email.com")
+    }
+
+    @Test
+    fun `sendPasswordReset success sets password reset flag`() = runTest {
+        whenever(authRepository.sendPasswordReset(any()))
+            .thenReturn(Result.success(Unit))
+        viewModel.onEmailChange("valid@email.com")
+        viewModel.sendPasswordReset()
+        viewModel.uiState.value.isPasswordResetSent.shouldBeTrue()
+    }
+
+    @Test
+    fun `clearPasswordResetState clears success flag and error`() {
+        viewModel.onGoogleSignInFailed("temporary error")
+        viewModel.clearPasswordResetState()
+        viewModel.uiState.value.isPasswordResetSent.shouldBeFalse()
+        viewModel.uiState.value.error shouldBe null
+    }
+
+    // ─── Register / Google / Guest ────────────────────────────────────────────
+
+    @Test
+    fun `register with valid data calls repository`() = runTest {
+        whenever(authRepository.register(any(), any(), any()))
+            .thenReturn(Result.success("uid-2"))
+        viewModel.switchToRegister()
+        viewModel.onDisplayNameChange("Ahmed")
+        viewModel.onEmailChange("register@email.com")
+        viewModel.onPasswordChange("password123")
+        viewModel.register()
+        verify(authRepository).register("register@email.com", "password123", "Ahmed")
+    }
+
+    @Test
+    fun `register failure sets mapped error and keeps unauthenticated`() = runTest {
+        whenever(authRepository.register(any(), any(), any()))
+            .thenReturn(Result.failure(Exception("email-already-in-use")))
+        viewModel.switchToRegister()
+        viewModel.onDisplayNameChange("Ahmed")
+        viewModel.onEmailChange("register@email.com")
+        viewModel.onPasswordChange("password123")
+        viewModel.register()
+        viewModel.uiState.value.error shouldBe "هذا البريد مسجّل بالفعل"
+        viewModel.uiState.value.isAuthenticated.shouldBeFalse()
+    }
+
+    @Test
+    fun `google sign in success authenticates user`() = runTest {
+        whenever(authRepository.signInWithGoogle(any()))
+            .thenReturn(Result.success("uid-google"))
+        viewModel.signInWithGoogle("token123")
+        viewModel.uiState.value.isAuthenticated.shouldBeTrue()
+    }
+
+    @Test
+    fun `google sign in failure maps error into ui state`() = runTest {
+        whenever(authRepository.signInWithGoogle(any()))
+            .thenReturn(Result.failure(Exception("network down")))
+        viewModel.signInWithGoogle("token123")
+        viewModel.uiState.value.error.shouldNotBeNull()
+    }
+
+    @Test
+    fun `onGoogleSignInFailed surfaces message`() {
+        viewModel.onGoogleSignInFailed("google flow failed")
+        viewModel.uiState.value.error shouldBe "google flow failed"
+    }
+
+    @Test
+    fun `continueAsGuest success authenticates user`() = runTest {
+        whenever(authRepository.signInAnonymously())
+            .thenReturn(Result.success("uid-guest"))
+        viewModel.continueAsGuest()
+        viewModel.uiState.value.isAuthenticated.shouldBeTrue()
+    }
+
+    // ─── Email Verification ────────────────────────────────────────────────────
+
+    @Test
+    fun `sendEmailVerification success clears loading without error`() = runTest {
+        whenever(authRepository.sendEmailVerification())
+            .thenReturn(Result.success(Unit))
+        viewModel.sendEmailVerification()
+        viewModel.uiState.value.isLoading.shouldBeFalse()
+        viewModel.uiState.value.error shouldBe null
+    }
+
+    @Test
+    fun `sendEmailVerification failure sets mapped error`() = runTest {
+        whenever(authRepository.sendEmailVerification())
+            .thenReturn(Result.failure(Exception("network unavailable")))
+        viewModel.sendEmailVerification()
+        viewModel.uiState.value.error.shouldNotBeNull()
+    }
+
+    @Test
+    fun `checkEmailVerification updates verification flag and current user`() = runTest {
+        whenever(authRepository.isEmailVerified()).thenReturn(true)
+        whenever(authRepository.getCurrentUserId()).thenReturn("uid-verified")
+        whenever(authRepository.getCurrentUserEmail()).thenReturn("verified@email.com")
+        whenever(authRepository.getCurrentDisplayName()).thenReturn("Verified User")
+        whenever(authRepository.reloadUser()).thenReturn(Result.success(Unit))
+
+        viewModel.checkEmailVerification()
+
+        viewModel.uiState.value.isEmailVerified.shouldBeTrue()
+        viewModel.uiState.value.currentUser.shouldNotBeNull()
+        viewModel.uiState.value.currentUser?.uid shouldBe "uid-verified"
     }
 }

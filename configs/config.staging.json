@@ -1,0 +1,86 @@
+{
+  "_comment": "EduSpecial STAGING config. Safe runtime values only.",
+  "_security_note": "Never store private server secrets in git. Keep sensitive keys in backend environment variables.",
+
+  "shared_secret_hex": "REPLACE_WITH_STAGING_SHARED_SECRET_HEX",
+
+  "config_version": 1,
+  "min_supported_app_version": 1,
+  "backend_base_url": "https://staging.example.com/api/v1/",
+
+  "firebase": {
+    "project_id": "eduspecial-staging",
+    "project_number": "REPLACE_WITH_STAGING_PROJECT_NUMBER",
+    "application_id": "REPLACE_WITH_STAGING_ANDROID_APP_ID",
+    "api_key": "REPLACE_WITH_STAGING_FIREBASE_API_KEY",
+    "storage_bucket": "REPLACE_WITH_STAGING_STORAGE_BUCKET",
+    "database_url": "",
+    "web_client_id": "REPLACE_WITH_STAGING_WEB_CLIENT_ID.apps.googleusercontent.com",
+    "android_client_id": "REPLACE_WITH_STAGING_ANDROID_CLIENT_ID.apps.googleusercontent.com"
+  },
+
+  "auth": {
+    "provider": "firebase",
+    "require_email_verification": true,
+    "allow_anonymous": true,
+    "session": {
+      "access_token_ttl_minutes": 60,
+      "refresh_token_ttl_days": 30,
+      "clock_skew_seconds": 120
+    },
+    "jwt": {
+      "issuer": "https://staging.example.com",
+      "audience": "eduspecial-mobile-staging",
+      "algorithm": "RS256",
+      "jwks_url": "https://staging.example.com/.well-known/jwks.json"
+    },
+    "google_signin": {
+      "enabled": true,
+      "web_client_id": "REPLACE_WITH_STAGING_WEB_CLIENT_ID.apps.googleusercontent.com",
+      "android_client_id": "REPLACE_WITH_STAGING_ANDROID_CLIENT_ID.apps.googleusercontent.com"
+    },
+    "password_policy": {
+      "min_length": 8,
+      "require_uppercase": true,
+      "require_lowercase": true,
+      "require_digit": true,
+      "require_symbol": false
+    },
+    "security": {
+      "max_login_attempts": 5,
+      "lockout_minutes": 15,
+      "enable_device_binding": false
+    }
+  },
+
+  "cloudinary_accounts": [
+    { "cloud_name": "REPLACE_STAGING_CLOUD_1", "upload_preset": "eduspecial_staging" }
+  ],
+
+  "algolia": {
+    "app_id": "REPLACE_STAGING_ALGOLIA_APP_ID",
+    "search_key": "REPLACE_STAGING_ALGOLIA_SEARCH_KEY",
+    "index_flashcards": "staging_flashcards",
+    "index_questions": "staging_questions"
+  },
+
+  "feature_flags": {
+    "google_signin_enabled": true,
+    "offline_mode_enabled": true
+  },
+
+  "push_notifications": {
+    "fcm_enabled": true,
+    "topics": ["staging_announcements", "staging_study_reminders"]
+  },
+
+  "server_secret_refs": {
+    "_comment": "Backend env variable names only.",
+    "jwt_private_key_pem_env": "JWT_PRIVATE_KEY_PEM",
+    "jwt_public_key_pem_env": "JWT_PUBLIC_KEY_PEM",
+    "firebase_service_account_json_env": "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "cloudinary_api_secret_env": "CLOUDINARY_API_SECRET",
+    "algolia_admin_key_env": "ALGOLIA_ADMIN_API_KEY",
+    "hmac_config_secret_env": "CONFIG_SHARED_SECRET_HEX"
+  }
+}

@@ -1,5 +1,6 @@
 package com.eduspecial.presentation.home
 
+import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.Immutable
@@ -59,8 +60,11 @@ class HomeViewModel @Inject constructor(
     private val getStudyStreak: GetStudyStreakUseCase,
     private val getWeeklyProgress: GetWeeklyProgressUseCase,
     private val getCategoryMastery: GetCategoryMasteryUseCase,
-    private val prefs: com.eduspecial.utils.UserPreferencesDataStore
+    private val userPreferencesDataStore: com.eduspecial.utils.UserPreferencesDataStore
 ) : ViewModel() {
+    companion object {
+        private const val TAG = "HomeViewModel"
+    }
 
     val stats: StateFlow<HomeStats> = flashcardRepository
         .getAllFlashcards()
@@ -90,7 +94,7 @@ class HomeViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    val dailyGoal: StateFlow<Int> = prefs.dailyGoal
+    val dailyGoal: StateFlow<Int> = userPreferencesDataStore.dailyGoal
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 10)
 
     init {
@@ -104,20 +108,42 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val streakDeferred = async { getStudyStreak() }
-                val weeklyDeferred = async { getWeeklyProgress() }
-                val masteryDeferred = async { getCategoryMastery() }
-                val todayDeferred = async { analyticsRepository.getTodayReviewCount() }
-
-                _streak.value = streakDeferred.await()
-                _weeklyProgress.value = weeklyDeferred.await()
-                _categoryMastery.value = masteryDeferred.await()
-                _todayReviewed.value = todayDeferred.await()
+                val analyticsSnapshot = fetchAnalyticsSnapshot()
+                applyAnalyticsSnapshot(analyticsSnapshot)
             } catch (e: Exception) {
-                // Silently fail — data stays at defaults
+                // Keep defaults when analytics fetch fails; log for debugging.
+                Log.w(TAG, "loadAnalytics failed: ${e.message}")
             } finally {
                 _isLoading.value = false
             }
         }
     }
+
+    private suspend fun fetchAnalyticsSnapshot(): AnalyticsSnapshot {
+        val streakDeferred = viewModelScope.async { getStudyStreak() }
+        val weeklyProgressDeferred = viewModelScope.async { getWeeklyProgress() }
+        val categoryMasteryDeferred = viewModelScope.async { getCategoryMastery() }
+        val todayReviewedDeferred = viewModelScope.async { analyticsRepository.getTodayReviewCount() }
+
+        return AnalyticsSnapshot(
+            streak = streakDeferred.await(),
+            weeklyProgress = weeklyProgressDeferred.await(),
+            categoryMastery = categoryMasteryDeferred.await(),
+            todayReviewed = todayReviewedDeferred.await()
+        )
+    }
+
+    private fun applyAnalyticsSnapshot(snapshot: AnalyticsSnapshot) {
+        _streak.value = snapshot.streak
+        _weeklyProgress.value = snapshot.weeklyProgress
+        _categoryMastery.value = snapshot.categoryMastery
+        _todayReviewed.value = snapshot.todayReviewed
+    }
 }
+
+private data class AnalyticsSnapshot(
+    val streak: Int,
+    val weeklyProgress: List<DailyProgress>,
+    val categoryMastery: List<CategoryMastery>,
+    val todayReviewed: Int
+)

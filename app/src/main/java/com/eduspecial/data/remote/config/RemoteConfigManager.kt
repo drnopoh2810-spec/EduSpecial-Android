@@ -13,11 +13,11 @@ import javax.inject.Singleton
  */
 @Singleton
 class RemoteConfigManager @Inject constructor(
-    private val runtime: RuntimeConfigProvider
+    private val runtimeConfigProvider: RuntimeConfigProvider
 ) {
 
     fun getCloudinaryConfig(accountNumber: Int): CloudinaryConfig {
-        val account = runtime.current
+        val account = runtimeConfigProvider.current
             ?.cloudinaryAccounts
             ?.getOrNull(accountNumber - 1)
         return CloudinaryConfig(
@@ -27,30 +27,30 @@ class RemoteConfigManager @Inject constructor(
     }
 
     fun getCloudinaryAccountCount(): Int =
-        runtime.current?.cloudinaryAccounts?.size ?: 0
+        runtimeConfigProvider.current?.cloudinaryAccounts?.size ?: 0
 
     fun getAlgoliaConfig(): AlgoliaConfig {
-        val a = runtime.current?.algolia
+        val algoliaConfig = runtimeConfigProvider.current?.algolia
         return AlgoliaConfig(
-            appId     = a?.appId.orEmpty(),
-            searchKey = a?.searchKey.orEmpty()
+            appId     = algoliaConfig?.appId.orEmpty(),
+            searchKey = algoliaConfig?.searchKey.orEmpty()
         )
     }
 
     fun getBackendBaseUrl(): String =
-        runtime.current?.backendBaseUrl.orEmpty()
+        runtimeConfigProvider.current?.backendBaseUrl.orEmpty()
 
     fun isFeatureEnabled(name: String): Boolean =
-        runtime.current?.featureFlags?.get(name) ?: false
+        runtimeConfigProvider.current?.featureFlags?.get(name) ?: false
 
     fun getConfigInfo(): String {
-        val c = runtime.current
+        val currentConfig = runtimeConfigProvider.current
         return """
             Runtime Config:
-            - version: ${c?.configVersion ?: "n/a"}
-            - cloudinary accounts: ${c?.cloudinaryAccounts?.size ?: 0}
-            - algolia: ${if (!c?.algolia?.appId.isNullOrEmpty()) "configured" else "missing"}
-            - backend: ${c?.backendBaseUrl ?: "n/a"}
+            - version: ${currentConfig?.configVersion ?: "n/a"}
+            - cloudinary accounts: ${currentConfig?.cloudinaryAccounts?.size ?: 0}
+            - algolia: ${if (!currentConfig?.algolia?.appId.isNullOrEmpty()) "configured" else "missing"}
+            - backend: ${currentConfig?.backendBaseUrl ?: "n/a"}
         """.trimIndent()
     }
 }

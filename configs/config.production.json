@@ -1,0 +1,86 @@
+{
+  "_comment": "EduSpecial PRODUCTION config. Safe runtime values only.",
+  "_security_note": "Do not commit private backend secrets. Rotate shared secret and keystore credentials regularly.",
+
+  "shared_secret_hex": "REPLACE_WITH_PRODUCTION_SHARED_SECRET_HEX",
+
+  "config_version": 1,
+  "min_supported_app_version": 1,
+  "backend_base_url": "https://api.eduspecial.com/api/v1/",
+
+  "firebase": {
+    "project_id": "eduspecial",
+    "project_number": "REPLACE_WITH_PRODUCTION_PROJECT_NUMBER",
+    "application_id": "REPLACE_WITH_PRODUCTION_ANDROID_APP_ID",
+    "api_key": "REPLACE_WITH_PRODUCTION_FIREBASE_API_KEY",
+    "storage_bucket": "REPLACE_WITH_PRODUCTION_STORAGE_BUCKET",
+    "database_url": "",
+    "web_client_id": "REPLACE_WITH_PRODUCTION_WEB_CLIENT_ID.apps.googleusercontent.com",
+    "android_client_id": "REPLACE_WITH_PRODUCTION_ANDROID_CLIENT_ID.apps.googleusercontent.com"
+  },
+
+  "auth": {
+    "provider": "firebase",
+    "require_email_verification": true,
+    "allow_anonymous": true,
+    "session": {
+      "access_token_ttl_minutes": 60,
+      "refresh_token_ttl_days": 30,
+      "clock_skew_seconds": 120
+    },
+    "jwt": {
+      "issuer": "https://api.eduspecial.com",
+      "audience": "eduspecial-mobile",
+      "algorithm": "RS256",
+      "jwks_url": "https://api.eduspecial.com/.well-known/jwks.json"
+    },
+    "google_signin": {
+      "enabled": true,
+      "web_client_id": "REPLACE_WITH_PRODUCTION_WEB_CLIENT_ID.apps.googleusercontent.com",
+      "android_client_id": "REPLACE_WITH_PRODUCTION_ANDROID_CLIENT_ID.apps.googleusercontent.com"
+    },
+    "password_policy": {
+      "min_length": 8,
+      "require_uppercase": true,
+      "require_lowercase": true,
+      "require_digit": true,
+      "require_symbol": false
+    },
+    "security": {
+      "max_login_attempts": 5,
+      "lockout_minutes": 15,
+      "enable_device_binding": true
+    }
+  },
+
+  "cloudinary_accounts": [
+    { "cloud_name": "REPLACE_PROD_CLOUD_1", "upload_preset": "eduspecial_prod" }
+  ],
+
+  "algolia": {
+    "app_id": "REPLACE_PRODUCTION_ALGOLIA_APP_ID",
+    "search_key": "REPLACE_PRODUCTION_ALGOLIA_SEARCH_KEY",
+    "index_flashcards": "flashcards",
+    "index_questions": "questions"
+  },
+
+  "feature_flags": {
+    "google_signin_enabled": true,
+    "offline_mode_enabled": true
+  },
+
+  "push_notifications": {
+    "fcm_enabled": true,
+    "topics": ["announcements", "study_reminders"]
+  },
+
+  "server_secret_refs": {
+    "_comment": "Backend env variable names only.",
+    "jwt_private_key_pem_env": "JWT_PRIVATE_KEY_PEM",
+    "jwt_public_key_pem_env": "JWT_PUBLIC_KEY_PEM",
+    "firebase_service_account_json_env": "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "cloudinary_api_secret_env": "CLOUDINARY_API_SECRET",
+    "algolia_admin_key_env": "ALGOLIA_ADMIN_API_KEY",
+    "hmac_config_secret_env": "CONFIG_SHARED_SECRET_HEX"
+  }
+}

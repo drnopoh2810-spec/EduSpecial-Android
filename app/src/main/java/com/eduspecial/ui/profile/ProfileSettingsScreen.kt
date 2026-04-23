@@ -26,7 +26,7 @@ import com.eduspecial.data.model.UserProfile
 fun ProfileSettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToSecurity: () -> Unit,
-    viewModel: ProfileViewModel = hiltViewModel()
+    viewModel: ProfileSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current

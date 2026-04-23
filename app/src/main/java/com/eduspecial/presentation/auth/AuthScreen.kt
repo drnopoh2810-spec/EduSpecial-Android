@@ -46,7 +46,7 @@ fun AuthScreen(
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val webClientId by viewModel.webClientId.collectAsState()
-    val googleSignInEnabled = webClientId.isNotBlank()
+    val googleSignInEnabled by viewModel.isGoogleSignInEnabled.collectAsState()
 
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()

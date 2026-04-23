@@ -20,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ConfigRepository @Inject constructor(
-    private val runtime: RuntimeConfigProvider,
+    private val runtimeConfigProvider: RuntimeConfigProvider,
     private val remoteConfigManager: RemoteConfigManager
 ) {
     companion object { private const val TAG = "ConfigRepository" }
@@ -34,17 +34,17 @@ class ConfigRepository @Inject constructor(
     suspend fun initializeConfig(): Boolean {
         return try {
             _configStatus.value = "Fetching encrypted runtime config..."
-            val ok = runtime.bootstrap()
+            val isBootstrapSuccessful = runtimeConfigProvider.bootstrap()
 
-            _configStatus.value = if (ok) {
+            _configStatus.value = if (isBootstrapSuccessful) {
                 "✅ Config loaded (${remoteConfigManager.getCloudinaryAccountCount()} cloudinary accounts)"
             } else {
                 "❌ No config available — first run requires internet"
             }
 
-            _isConfigLoaded.value = ok
+            _isConfigLoaded.value = isBootstrapSuccessful
             Log.d(TAG, remoteConfigManager.getConfigInfo())
-            ok
+            isBootstrapSuccessful
         } catch (e: Exception) {
             Log.e(TAG, "❌ initializeConfig failed: ${e.message}")
             _configStatus.value = "❌ ${e.message}"
@@ -54,8 +54,8 @@ class ConfigRepository @Inject constructor(
     }
 
     fun getCloudinaryConfigs(): List<CloudinaryConfig> {
-        val n = remoteConfigManager.getCloudinaryAccountCount()
-        return (1..n).map { remoteConfigManager.getCloudinaryConfig(it) }
+        val cloudinaryAccountCount = remoteConfigManager.getCloudinaryAccountCount()
+        return (1..cloudinaryAccountCount).map { remoteConfigManager.getCloudinaryConfig(it) }
             .filter { it.cloudName.isNotEmpty() && it.uploadPreset.isNotEmpty() }
     }
 

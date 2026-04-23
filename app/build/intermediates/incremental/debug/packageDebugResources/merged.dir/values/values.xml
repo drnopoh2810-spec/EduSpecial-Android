@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#000000</color>
+    <color name="edu_amber">#FFB300</color>
+    <color name="edu_blue">#1565C0</color>
+    <color name="edu_blue_dark">#003C8F</color>
+    <color name="edu_blue_light">#5E92F3</color>
+    <color name="edu_error">#D32F2F</color>
+    <color name="edu_teal">#00897B</color>
+    <color name="notification_color">#1565C0</color>
+    <color name="splash_background">#1565C0</color>
+    <color name="white">#FFFFFF</color>
+    <string name="add_answer">إضافة إجابة</string>
+    <string name="add_first_term">اضغط + لإضافة أول مصطلح</string>
+    <string name="add_term">إضافة مصطلح</string>
+    <string name="app_description">موسوعة ABA والتعليم الخاص</string>
+    <string name="app_name">EduSpecial</string>
+    <string name="ask_question">اطرح سؤالاً</string>
+    <string name="be_first_to_ask">كن أول من يطرح سؤالاً!</string>
+    <string name="browse_as_guest">تصفح كزائر (بدون حساب)</string>
+    <string name="btn_again">مجدداً</string>
+    <string name="btn_easy">سهل</string>
+    <string name="btn_good">جيد</string>
+    <string name="btn_hard">صعب</string>
+    <string name="category_label">الفئة</string>
+    <string name="checking_duplicate">جاري التحقق من التكرار...</string>
+    <string name="create_account">إنشاء حساب</string>
+    <string name="daily_goal">الهدف اليومي</string>
+    <string name="dark_mode">الوضع الليلي</string>
+    <string name="default_web_client_id" translatable="false">991388117026-dmmg53umtu4tapp7mtv7poc5d5mkhnq3.apps.googleusercontent.com</string>
+    <string name="definition_label">التعريف</string>
+    <string name="display_name">الاسم</string>
+    <string name="duplicate_warning">⚠ هذا المصطلح موجود بالفعل!</string>
+    <string name="email">البريد الإلكتروني</string>
+    <string name="error_generic">حدث خطأ ما. يرجى المحاولة مرة أخرى.</string>
+    <string name="error_invalid_email">بريد إلكتروني غير صحيح</string>
+    <string name="error_network">لا يوجد اتصال بالإنترنت. العمل في وضع عدم الاتصال.</string>
+    <string name="error_short_password">كلمة المرور 6 أحرف على الأقل</string>
+    <string name="forgot_password">نسيت كلمة المرور؟</string>
+    <string name="gcm_defaultSenderId" translatable="false">991388117026</string>
+    <string name="google_api_key" translatable="false">AIzaSyD8YLaEEfHQdTIOFDvI7aVkjVqnXAZnRRU</string>
+    <string name="google_app_id" translatable="false">1:991388117026:android:30feea55f83c54bb1fc27b</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyD8YLaEEfHQdTIOFDvI7aVkjVqnXAZnRRU</string>
+    <string name="google_storage_bucket" translatable="false">eduspecial.firebasestorage.app</string>
+    <string name="google_web_client_id" translatable="false"/>
+    <string name="login">تسجيل الدخول</string>
+    <string name="nav_flashcards">البطاقات</string>
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_profile">حسابي</string>
+    <string name="nav_qa">الأسئلة</string>
+    <string name="nav_search">البحث</string>
+    <string name="nav_study">المراجعة</string>
+    <string name="no_flashcards">لا توجد بطاقات بعد</string>
+    <string name="no_questions">لا توجد أسئلة بعد</string>
+    <string name="no_results">لا نتائج</string>
+    <string name="notifications">إشعارات المراجعة</string>
+    <string name="password">كلمة المرور</string>
+    <string name="post_question">نشر</string>
+    <string name="profile">الملف الشخصي</string>
+    <string name="project_id" translatable="false">eduspecial</string>
+    <string name="register">حساب جديد</string>
+    <string name="search_database">ابحث في قاعدة البيانات</string>
+    <string name="search_hint">ابحث عن مصطلح أو سؤال...</string>
+    <string name="session_complete">انتهت الجلسة!</string>
+    <string name="sign_in">دخول</string>
+    <string name="sign_out">تسجيل الخروج</string>
+    <string name="start_new_session">بدء جلسة جديدة</string>
+    <string name="study_mode">وضع المراجعة</string>
+    <string name="tap_to_reveal">اضغط على البطاقة لإظهار الإجابة</string>
+    <string name="term_label">المصطلح (بالإنجليزية)</string>
+    <string name="update_available">تحديث جديد متاح</string>
+    <string name="update_downloading">جاري التنزيل...</string>
+    <string name="update_error_title">خطأ في التحديث</string>
+    <string name="update_later">لاحقاً</string>
+    <string name="update_notification_title">تحديث EduSpecial</string>
+    <string name="update_now">تحديث الآن</string>
+    <string name="update_ok">حسناً</string>
+    <string name="update_release_notes">ملاحظات الإصدار:</string>
+    <style name="Theme.EduSpecial" parent="Theme.Material3.DayNight.NoActionBar"/>
+    <style name="Theme.EduSpecial.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_round</item>
+        <item name="windowSplashScreenAnimationDuration">300</item>
+        <item name="postSplashScreenTheme">@style/Theme.EduSpecial</item>
+    </style>
+</resources>

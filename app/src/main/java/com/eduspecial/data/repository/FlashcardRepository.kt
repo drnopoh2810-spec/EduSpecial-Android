@@ -32,30 +32,15 @@ class FlashcardRepository @Inject constructor(
     private val moderationRepository: com.eduspecial.data.repository.ModerationRepository
 ) {
     private val col = firestore.collection("flashcards")
-
-    // Coroutine scope tied to the singleton lifetime (app lifetime)
     private val repoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
-    // Active Firestore real-time listener
     private var listenerRegistration: ListenerRegistration? = null
 
     init {
         startRealtimeListener()
     }
 
-    /**
-     * Starts a Firestore real-time listener on the "flashcards" collection.
-     *
-     * Every time ANY user adds, edits, or deletes a flashcard, Firestore pushes
-     * the change to ALL connected clients instantly. We write the change into
-     * Room so getAllFlashcards() Flow emits immediately — no manual refresh needed.
-     *
-     * - Online: receives server changes in real-time (< 1 second latency)
-     * - Offline: Firestore serves from its own cache; Room syncs when back online
-     */
     fun startRealtimeListener() {
         listenerRegistration?.remove()
-
         listenerRegistration = col
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
@@ -73,9 +58,7 @@ class FlashcardRepository @Inject constructor(
                             DocumentChange.Type.MODIFIED -> {
                                 val entity = doc.toFlashcardEntity() ?: continue
                                 val existing = flashcardDao.getFlashcardById(entity.id)
-                                // Skip if this device has a pending local write for this card
                                 if (existing != null && existing.isPendingSync) continue
-                                // Preserve per-user SRS progress, update shared content
                                 val merged = if (existing != null) {
                                     entity.copy(
                                         reviewState  = existing.reviewState,
@@ -115,14 +98,9 @@ class FlashcardRepository @Inject constructor(
     fun getByCategory(category: FlashcardCategory): Flow<List<Flashcard>> =
         flashcardDao.getByCategory(category.name).map { it.map { e -> e.toDomain() } }
 
-    /** Local full-text search — instant, works offline */
     suspend fun searchLocal(query: String): List<Flashcard> =
         flashcardDao.searchFlashcards(query).map { it.toDomain() }
 
-    /** 
-     * Enhanced search using Algolia for better results.
-     * Falls back to local search if Algolia is unavailable.
-     */
     suspend fun search(
         query: String, 
         category: FlashcardCategory? = null,
@@ -139,7 +117,6 @@ class FlashcardRepository @Inject constructor(
         }
     }
 
-    /** Get search suggestions using Algolia */
     suspend fun getSearchSuggestions(query: String): List<String> {
         return if (algoliaSearchService.isAvailable()) {
             algoliaSearchService.getSuggestions(query)
@@ -151,29 +128,19 @@ class FlashcardRepository @Inject constructor(
     // ─── Duplicate Check ──────────────────────────────────────────────────────
 
     suspend fun checkDuplicate(term: String): DuplicateCheckResult {
-        // 1. Fast local check (case-insensitive)
         if (flashcardDao.countByTerm(term.trim()) > 0)
             return DuplicateCheckResult.IsDuplicate(emptyList())
-        // 2. Firestore check (catches cards not yet synced to this device)
         return try {
             val snap = col.whereEqualTo("term", term.trim()).limit(1).get().await()
             if (!snap.isEmpty) DuplicateCheckResult.IsDuplicate(emptyList())
             else DuplicateCheckResult.NotDuplicate
         } catch (e: Exception) {
-            DuplicateCheckResult.NotDuplicate // Offline — trust local check
+            DuplicateCheckResult.NotDuplicate 
         }
     }
 
     // ─── Create ───────────────────────────────────────────────────────────────
 
-    /**
-     * Creates a flashcard visible to ALL users immediately.
-     *
-     * 1. Moderate content first for safety
-     * 2. Write to Room locally → creator sees it instantly
-     * 3. Write to Firestore → all other users receive it via real-time listener
-     * 4. If offline → isPendingSync=true, SyncWorker pushes when back online
-     */
     suspend fun createFlashcard(
         term: String,
         definition: String,
@@ -182,14 +149,12 @@ class FlashcardRepository @Inject constructor(
         mediaType: MediaType,
         contributorId: String
     ): Result<Flashcard> {
-        // Step 1: Content moderation
         val moderationResult = moderationRepository.moderateFlashcard(
             term = term,
             definition = definition,
             authorId = contributorId
         )
         
-        // Check if content should be rejected
         if (moderationResult.decision == com.eduspecial.data.remote.moderation.ModerationDecision.REJECT) {
             return Result.failure(Exception("المحتوى مرفوض: ${moderationResult.termResult.reason}"))
         }
@@ -209,11 +174,9 @@ class FlashcardRepository @Inject constructor(
             isPendingSync = true
         )
 
-        // Step 2: local write — creator sees it immediately
         flashcardDao.insert(entity)
 
         return try {
-            // Step 3: Firestore write — broadcasts to all other users
             col.document(id).set(
                 mapOf(
                     "id"          to id,
@@ -231,10 +194,8 @@ class FlashcardRepository @Inject constructor(
                 )
             ).await()
             
-            // Step 4: mark synced
             flashcardDao.insert(entity.copy(isPendingSync = false))
             
-            // Step 5: Handle moderation result
             if (moderationResult.requiresReview) {
                 moderationRepository.addToPendingReview(
                     contentId = id,
@@ -243,14 +204,17 @@ class FlashcardRepository @Inject constructor(
                     authorId = contributorId,
                     moderationResult = moderationResult.termResult
                 )
-                Log.d("FlashcardRepo", "📋 Flashcard flagged for review: $id")
             }
             
-            // Step 6: award contribution points to the creator
             leaderboardRepository.awardFlashcardPoints(contributorId)
             Result.success(entity.toDomain())
         } catch (e: Exception) {
             Log.d("FlashcardRepo", "Offline create — queued for sync: $id")
+            pendingDao.insert(PendingSubmissionEntity(
+                localId = UUID.randomUUID().toString(),
+                type    = PendingSubmissionEntity.TYPE_FLASHCARD,
+                payload = """{"term":"$term","definition":"$definition","category":"${category.name}","mediaUrl":${if (mediaUrl != null) "\"$mediaUrl\"" else "null"},"mediaType":"${mediaType.name}","contributorId":"$contributorId"}"""
+            ))
             Result.success(entity.toDomain())
         }
     }
@@ -270,15 +234,11 @@ class FlashcardRepository @Inject constructor(
                     "nextReviewDate" to nextReview
                 )
             ).await()
-        } catch (_: Exception) { /* local update already applied */ }
+        } catch (_: Exception) { }
     }
 
     // ─── Refresh (initial load / pull-to-refresh) ─────────────────────────────
 
-    /**
-     * Fetches ALL flashcards from Firestore in batches of 100.
-     * The real-time listener handles incremental updates after this.
-     */
     suspend fun refreshFromServer(page: Int = 1): Result<Unit> {
         return try {
             var lastDoc: com.google.firebase.firestore.DocumentSnapshot? = null
@@ -301,11 +261,8 @@ class FlashcardRepository @Inject constructor(
                 }
                 hasMore = snap.documents.size == 100
             }
-
-            Log.d("FlashcardRepo", "Refreshed $totalFetched flashcards from Firestore")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.w("FlashcardRepo", "Refresh failed", e)
             Result.failure(e)
         }
     }
@@ -339,7 +296,7 @@ class FlashcardRepository @Inject constructor(
                     "term"       to term,
                     "definition" to definition,
                     "category"   to category.name,
-                    "mediaUrl"   to mediaUrl,
+                    "mediaUrl"    to mediaUrl,
                     "mediaType"  to mediaType.name
                 )
             ).await()
@@ -401,8 +358,6 @@ class FlashcardRepository @Inject constructor(
     }
 }
 
-// ─── Firestore → Entity mapper ────────────────────────────────────────────────
-
 private fun com.google.firebase.firestore.DocumentSnapshot.toFlashcardEntity(): FlashcardEntity? {
     return try {
         FlashcardEntity(
@@ -420,14 +375,10 @@ private fun com.google.firebase.firestore.DocumentSnapshot.toFlashcardEntity(): 
     } catch (_: Exception) { null }
 }
 
-// ─── Sealed result ────────────────────────────────────────────────────────────
-
 sealed class DuplicateCheckResult {
     data object NotDuplicate : DuplicateCheckResult()
     data class IsDuplicate(val similarTerms: List<String>) : DuplicateCheckResult()
 }
-
-// ─── Domain mappers ───────────────────────────────────────────────────────────
 
 fun FlashcardEntity.toDomain() = Flashcard(
     id             = id,

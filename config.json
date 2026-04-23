@@ -1,0 +1,95 @@
+{
+  "_comment": "EduSpecial central config — edit any value here and the Android app will pick it up automatically (cached). Delivered to clients over an HMAC-authenticated, AES-GCM-encrypted channel.",
+  "_security_note": "Do NOT place private server secrets in this file if it is stored in git. Keep real secrets in backend environment variables and expose only runtime-safe values to clients.",
+
+  "shared_secret_hex": "3201d0946216d1d9ac81294932d0636dafc32eb13a211b80a00e7370abd83fa4",
+
+  "config_version": 1,
+  "min_supported_app_version": 1,
+
+  "backend_base_url": "https://manoo22.pythonanywhere.com/api/v1/",
+
+  "firebase": {
+    "project_id":       "eduspecial",
+    "project_number":   "991388117026",
+    "application_id":   "1:991388117026:android:30feea55f83c54bb1fc27b",
+    "api_key":          "AIzaSyD8YLaEEfHQdTIOFDvI7aVkjVqnXAZnRRU",
+    "storage_bucket":   "eduspecial.firebasestorage.app",
+    "database_url":     "",
+    "web_client_id":    "991388117026-dmmg53umtu4tapp7mtv7poc5d5mkhnq3.apps.googleusercontent.com",
+    "android_client_id": "991388117026-j60ktiarjvbcj0nu4k2ut0u6fi88cf90.apps.googleusercontent.com"
+  },
+
+  "auth": {
+    "provider": "firebase",
+    "require_email_verification": true,
+    "allow_anonymous": true,
+    "session": {
+      "access_token_ttl_minutes": 60,
+      "refresh_token_ttl_days": 30,
+      "clock_skew_seconds": 120
+    },
+    "jwt": {
+      "issuer": "https://manoo22.pythonanywhere.com",
+      "audience": "eduspecial-mobile",
+      "algorithm": "RS256",
+      "jwks_url": "https://manoo22.pythonanywhere.com/.well-known/jwks.json"
+    },
+    "google_signin": {
+      "enabled": true,
+      "web_client_id": "991388117026-dmmg53umtu4tapp7mtv7poc5d5mkhnq3.apps.googleusercontent.com",
+      "android_client_id": "991388117026-j60ktiarjvbcj0nu4k2ut0u6fi88cf90.apps.googleusercontent.com"
+    },
+    "password_policy": {
+      "min_length": 8,
+      "require_uppercase": true,
+      "require_lowercase": true,
+      "require_digit": true,
+      "require_symbol": false
+    },
+    "security": {
+      "max_login_attempts": 5,
+      "lockout_minutes": 15,
+      "enable_device_binding": false
+    }
+  },
+
+  "cloudinary_accounts": [
+    { "cloud_name": "ddh0htmsd", "upload_preset": "eduspecial_preset" },
+    { "cloud_name": "dia9sbo8k", "upload_preset": "eduspecial_preset" },
+    { "cloud_name": "df3laarle", "upload_preset": "eduspecial_preset" },
+    { "cloud_name": "dxhwzdawf", "upload_preset": "eduspecial_preset" },
+    { "cloud_name": "ddybezumc", "upload_preset": "eduspecial_preset" },
+    { "cloud_name": "dmxcipnbf", "upload_preset": "eduspecial_preset" }
+  ],
+
+  "algolia": {
+    "app_id":           "Z7D8XTTMQQ",
+    "search_key":       "4a11418ac38720088b5bb00f2a9a5c50",
+    "index_flashcards": "flashcards",
+    "index_questions":  "questions"
+  },
+
+  "feature_flags": {
+    "google_signin_enabled": true,
+    "offline_mode_enabled":  true
+  },
+
+  "push_notifications": {
+    "fcm_enabled": true,
+    "topics": [
+      "announcements",
+      "study_reminders"
+    ]
+  },
+
+  "server_secret_refs": {
+    "_comment": "These are backend environment variable names, not raw secret values.",
+    "jwt_private_key_pem_env": "JWT_PRIVATE_KEY_PEM",
+    "jwt_public_key_pem_env": "JWT_PUBLIC_KEY_PEM",
+    "firebase_service_account_json_env": "FIREBASE_SERVICE_ACCOUNT_JSON",
+    "cloudinary_api_secret_env": "CLOUDINARY_API_SECRET",
+    "algolia_admin_key_env": "ALGOLIA_ADMIN_API_KEY",
+    "hmac_config_secret_env": "CONFIG_SHARED_SECRET_HEX"
+  }
+}

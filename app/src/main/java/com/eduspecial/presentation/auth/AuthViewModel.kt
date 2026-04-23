@@ -41,8 +41,20 @@ class AuthViewModel @Inject constructor(
 
     /** OAuth web client id, delivered at runtime from /api/v1/config. */
     val webClientId: StateFlow<String> = runtimeConfigProvider.config
-        .map { it?.firebase?.webClientId.orEmpty() }
+        .map {
+            it?.auth?.googleSignIn?.webClientId
+                ?.takeIf { value -> value.isNotBlank() }
+                ?: it?.firebase?.webClientId.orEmpty()
+        }
         .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    /**
+     * Google sign-in is enabled only when a non-placeholder OAuth client id is present.
+     * This avoids exposing a broken button when config still has template values.
+     */
+    val isGoogleSignInEnabled: StateFlow<Boolean> = webClientId
+        .map { clientId -> isValidGoogleClientId(clientId) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
         if (authRepository.isLoggedIn()) {
@@ -76,28 +88,26 @@ class AuthViewModel @Inject constructor(
         val state = _uiState.value
         if (!validate(state)) return
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.login(state.email.trim(), state.password)
-                .onSuccess { refreshCurrentUser(authenticated = true) }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) } }
-        }
+        launchAuthCall(
+            call = { authRepository.login(state.email.trim(), state.password) },
+            onSuccess = { refreshCurrentUser(authenticated = true) }
+        )
     }
 
     fun register() {
         val state = _uiState.value
         if (!validate(state)) return
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.register(
+        launchAuthCall(
+            call = {
+                authRepository.register(
                 email = state.email.trim(),
                 password = state.password,
                 displayName = state.displayName.trim().ifEmpty { state.email.substringBefore("@") }
             )
-                .onSuccess { refreshCurrentUser(authenticated = true) }
-                .onFailure { e -> _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) } }
-        }
+            },
+            onSuccess = { refreshCurrentUser(authenticated = true) }
+        )
     }
 
     /** Send password reset using the email currently in uiState. */
@@ -112,18 +122,13 @@ class AuthViewModel @Inject constructor(
 
     /** Send password reset to the supplied email. */
     fun sendPasswordReset(email: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null, isPasswordResetSent = false) }
-            authRepository.sendPasswordReset(email)
-                .onSuccess {
-                    _uiState.update {
-                        it.copy(isLoading = false, isPasswordResetSent = true)
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) }
-                }
-        }
+        launchAuthCall(
+            resetPasswordState = true,
+            call = { authRepository.sendPasswordReset(email) },
+            onSuccess = {
+                _uiState.update { it.copy(isLoading = false, isPasswordResetSent = true) }
+            }
+        )
     }
 
     fun clearPasswordResetState() {
@@ -131,14 +136,10 @@ class AuthViewModel @Inject constructor(
     }
 
     fun sendEmailVerification() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.sendEmailVerification()
-                .onSuccess { _uiState.update { it.copy(isLoading = false) } }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) }
-                }
-        }
+        launchAuthCall(
+            call = { authRepository.sendEmailVerification() },
+            onSuccess = { _uiState.update { it.copy(isLoading = false) } }
+        )
     }
 
     fun checkEmailVerification() {
@@ -159,14 +160,10 @@ class AuthViewModel @Inject constructor(
 
     /** Complete Google sign-in with the ID token returned by GoogleSignInClient. */
     fun signInWithGoogle(idToken: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            authRepository.signInWithGoogle(idToken)
-                .onSuccess { refreshCurrentUser(authenticated = true) }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) }
-                }
-        }
+        launchAuthCall(
+            call = { authRepository.signInWithGoogle(idToken) },
+            onSuccess = { refreshCurrentUser(authenticated = true) }
+        )
     }
 
     /** Surface an error from the Google sign-in UI flow (cancel, no network, etc). */
@@ -175,11 +172,34 @@ class AuthViewModel @Inject constructor(
     }
 
     fun continueAsGuest() {
+        launchAuthCall(
+            clearError = false,
+            call = { authRepository.signInAnonymously() },
+            onSuccess = { refreshCurrentUser(authenticated = true) },
+            onFailure = { _uiState.update { it.copy(isAuthenticated = true, isLoading = false) } }
+        )
+    }
+
+    private fun <T> launchAuthCall(
+        clearError: Boolean = true,
+        resetPasswordState: Boolean = false,
+        call: suspend () -> Result<T>,
+        onSuccess: (T) -> Unit,
+        onFailure: (Throwable) -> Unit = { e ->
+            _uiState.update { it.copy(isLoading = false, error = mapError(e.message)) }
+        }
+    ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            authRepository.signInAnonymously()
-                .onSuccess { refreshCurrentUser(authenticated = true) }
-                .onFailure { _uiState.update { it.copy(isAuthenticated = true, isLoading = false) } }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    error = if (clearError) null else it.error,
+                    isPasswordResetSent = if (resetPasswordState) false else it.isPasswordResetSent
+                )
+            }
+            call()
+                .onSuccess { value -> onSuccess(value) }
+                .onFailure { e -> onFailure(e) }
         }
     }
 
@@ -221,5 +241,13 @@ class AuthViewModel @Inject constructor(
         msg.contains("network") || msg.contains("Network") -> "تحقق من اتصال الإنترنت"
         msg.contains("too-many-requests") -> "محاولات كثيرة — انتظر قليلاً"
         else -> "حدث خطأ: $msg"
+    }
+
+    private fun isValidGoogleClientId(clientId: String): Boolean {
+        val normalized = clientId.trim()
+        if (normalized.isBlank()) return false
+        if (normalized.contains("REQUIRED_", ignoreCase = true)) return false
+        if (normalized.contains("REPLACE_", ignoreCase = true)) return false
+        return normalized.endsWith(".apps.googleusercontent.com")
     }
 }
