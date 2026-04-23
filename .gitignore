@@ -11,20 +11,35 @@ local.properties
 *.jks
 *.keystore
 
-# Python scripts (Cloud Shell utilities)
-*.py
-tok.tmp
+# Build artifacts
+app/build/
+build/
 
-# Playwright logs
-.playwright-mcp/
+# IDE files
+*.iws
+*.ipr
+out/
 
-# Firebase temp
-.firebaserc
+# Python scripts
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
 
-# Replit assets — never commit secrets shared during chat sessions
+# Secrets
+.env
+.flaskenv
+
+# Log files
+*.log
+
+# Project specific
+scripts/verify_app_setup.sh
+.replit
+replit.md
 attached_assets/
 .local/
-replit.md
 public/
-
 myproject/serviceAccountKey.json
