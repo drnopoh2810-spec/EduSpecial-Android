@@ -2,6 +2,7 @@ package com.eduspecial.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eduspecial.data.remote.secure.RuntimeConfigProvider
 import com.eduspecial.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -31,11 +32,17 @@ data class AuthUiState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    runtimeConfigProvider: RuntimeConfigProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+
+    /** OAuth web client id, delivered at runtime from /api/v1/config. */
+    val webClientId: StateFlow<String> = runtimeConfigProvider.config
+        .map { it?.firebase?.webClientId.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
 
     init {
         if (authRepository.isLoggedIn()) {

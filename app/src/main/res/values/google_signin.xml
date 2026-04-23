@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      Web Client ID used by Google Sign-In on Android.
-      Find it in Firebase Console > Authentication > Sign-in method > Google >
-      Web SDK configuration > Web client ID.
-      It looks like: 991388117026-xxxxxxxxxxxxxxxx.apps.googleusercontent.com
-
-      If left empty the Google sign-in button stays hidden and the app falls back
-      to email / password (or guest) login.
+      Google Sign-In Web Client ID is fetched at runtime from the secure config
+      channel (/api/v1/config) — see firebase.web_client_id in config.json.
+      This placeholder is kept empty so legacy `R.string.google_web_client_id`
+      lookups never expose a real OAuth identifier in the APK.
     -->
-    <string name="google_web_client_id" translatable="false">991388117026-dmmg53umtu4tapp7mtv7poc5d5mkhnq3.apps.googleusercontent.com</string>
+    <string name="google_web_client_id" translatable="false"></string>
 </resources>

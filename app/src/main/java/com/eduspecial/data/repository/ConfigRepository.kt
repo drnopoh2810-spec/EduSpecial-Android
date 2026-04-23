@@ -4,102 +4,67 @@ import android.util.Log
 import com.eduspecial.data.remote.config.AlgoliaConfig
 import com.eduspecial.data.remote.config.CloudinaryConfig
 import com.eduspecial.data.remote.config.RemoteConfigManager
+import com.eduspecial.data.remote.secure.RuntimeConfigProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Bootstraps the runtime configuration via [RuntimeConfigProvider] and exposes
+ * Cloudinary / Algolia credentials to the rest of the app.
+ *
+ * No values are hard-coded; everything comes from the secure /api/v1/config
+ * channel and is cached locally for offline starts.
+ */
 @Singleton
 class ConfigRepository @Inject constructor(
+    private val runtime: RuntimeConfigProvider,
     private val remoteConfigManager: RemoteConfigManager
 ) {
-    
-    companion object {
-        private const val TAG = "ConfigRepository"
-    }
-    
+    companion object { private const val TAG = "ConfigRepository" }
+
     private val _isConfigLoaded = MutableStateFlow(false)
     val isConfigLoaded: StateFlow<Boolean> = _isConfigLoaded.asStateFlow()
-    
+
     private val _configStatus = MutableStateFlow("Initializing...")
     val configStatus: StateFlow<String> = _configStatus.asStateFlow()
-    
+
     suspend fun initializeConfig(): Boolean {
         return try {
-            Log.d(TAG, "🚀 Initializing configuration...")
-            _configStatus.value = "Fetching from Firebase..."
-            
-            val success = remoteConfigManager.fetchAndActivate()
-            
-            // Validate configuration
-            val cloudinaryConfigs = getCloudinaryConfigs()
-            val algoliaConfig = getAlgoliaConfig()
-            
-            Log.d(TAG, "📊 Configuration Summary:")
-            Log.d(TAG, "  - Cloudinary accounts: ${cloudinaryConfigs.size}")
-            Log.d(TAG, "  - Algolia configured: ${algoliaConfig.appId.isNotEmpty()}")
-            
-            _configStatus.value = if (success) {
-                "✅ Configuration loaded from Firebase"
+            _configStatus.value = "Fetching encrypted runtime config..."
+            val ok = runtime.bootstrap()
+
+            _configStatus.value = if (ok) {
+                "✅ Config loaded (${remoteConfigManager.getCloudinaryAccountCount()} cloudinary accounts)"
             } else {
-                "⚠️ Using cached/default configuration"
+                "❌ No config available — first run requires internet"
             }
-            
-            _isConfigLoaded.value = true
-            
-            // Log Remote Config info
+
+            _isConfigLoaded.value = ok
             Log.d(TAG, remoteConfigManager.getConfigInfo())
-            
-            true
+            ok
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Configuration initialization failed: ${e.message}")
-            _configStatus.value = "❌ Configuration failed: ${e.message}"
-            _isConfigLoaded.value = true // Still mark as loaded to use defaults
+            Log.e(TAG, "❌ initializeConfig failed: ${e.message}")
+            _configStatus.value = "❌ ${e.message}"
+            _isConfigLoaded.value = false
             false
         }
     }
-    
+
     fun getCloudinaryConfigs(): List<CloudinaryConfig> {
-        return try {
-            (1..6).map { accountNumber ->
-                remoteConfigManager.getCloudinaryConfig(accountNumber)
-            }.filter { config ->
-                config.cloudName.isNotEmpty() && 
-                config.cloudName != "your_cloud_name" &&
-                config.uploadPreset.isNotEmpty()
-            }.also { configs ->
-                Log.d(TAG, "📱 Available Cloudinary accounts: ${configs.size}")
-                configs.forEachIndexed { index, config ->
-                    Log.v(TAG, "  Account ${index + 1}: ${config.cloudName}")
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to get Cloudinary configs: ${e.message}")
-            emptyList()
-        }
+        val n = remoteConfigManager.getCloudinaryAccountCount()
+        return (1..n).map { remoteConfigManager.getCloudinaryConfig(it) }
+            .filter { it.cloudName.isNotEmpty() && it.uploadPreset.isNotEmpty() }
     }
-    
-    fun getAlgoliaConfig(): AlgoliaConfig {
-        return try {
-            remoteConfigManager.getAlgoliaConfig().also { config ->
-                Log.d(TAG, "🔍 Algolia config: ${if (config.appId.isNotEmpty()) "Available" else "Not configured"}")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Failed to get Algolia config: ${e.message}")
-            AlgoliaConfig("", "")
-        }
-    }
-    
-    fun getConfigurationSummary(): String {
-        val cloudinaryCount = getCloudinaryConfigs().size
-        val algoliaAvailable = getAlgoliaConfig().appId.isNotEmpty()
-        
-        return """
+
+    fun getAlgoliaConfig(): AlgoliaConfig = remoteConfigManager.getAlgoliaConfig()
+
+    fun getConfigurationSummary(): String = """
         Configuration Status: ${_configStatus.value}
-        Cloudinary Accounts: $cloudinaryCount
-        Algolia Search: ${if (algoliaAvailable) "Enabled" else "Disabled"}
-        Config Loaded: ${_isConfigLoaded.value}
-        """.trimIndent()
-    }
+        Cloudinary Accounts:  ${getCloudinaryConfigs().size}
+        Algolia Search:       ${if (getAlgoliaConfig().appId.isNotEmpty()) "Enabled" else "Disabled"}
+        Config Loaded:        ${_isConfigLoaded.value}
+    """.trimIndent()
 }

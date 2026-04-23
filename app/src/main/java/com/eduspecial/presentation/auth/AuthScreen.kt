@@ -45,7 +45,7 @@ fun AuthScreen(
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
-    val webClientId = stringResource(R.string.google_web_client_id)
+    val webClientId by viewModel.webClientId.collectAsState()
     val googleSignInEnabled = webClientId.isNotBlank()
 
     val googleSignInLauncher = rememberLauncherForActivityResult(

@@ -74,15 +74,7 @@ object AppModule {
     @Provides fun provideBookmarkDao(db: EduSpecialDatabase): BookmarkDao = db.bookmarkDao()
     @Provides fun provideAnalyticsDao(db: EduSpecialDatabase): AnalyticsDao = db.analyticsDao()
 
-    @Provides @Singleton
-    fun provideRemoteConfigManager(): com.eduspecial.data.remote.config.RemoteConfigManager =
-        com.eduspecial.data.remote.config.RemoteConfigManager()
-
-    @Provides @Singleton
-    fun provideConfigRepository(
-        remoteConfigManager: com.eduspecial.data.remote.config.RemoteConfigManager
-    ): com.eduspecial.data.repository.ConfigRepository =
-        com.eduspecial.data.repository.ConfigRepository(remoteConfigManager)
+    // RemoteConfigManager + ConfigRepository are auto-provided via @Inject constructors.
 
     @Provides @Singleton
     fun provideCloudinaryService(

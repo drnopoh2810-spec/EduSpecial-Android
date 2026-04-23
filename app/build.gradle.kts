@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
+    // google-services plugin removed — Firebase initialized at runtime from secure /api/v1/config
 }
 
 android {

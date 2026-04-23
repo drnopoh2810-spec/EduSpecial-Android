@@ -6,108 +6,94 @@ import android.app.NotificationManager
 import android.os.Build
 import android.util.Log
 import androidx.work.Configuration
+import com.eduspecial.data.remote.secure.RuntimeConfigProvider
 import com.eduspecial.utils.NotificationScheduler
 import com.eduspecial.utils.SyncWorker
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
+/**
+ * Application bootstrap.
+ *
+ *   1) Fetch the encrypted runtime config (or load from cache) — synchronous
+ *      block, because Firebase MUST be initialized before any singleton uses it.
+ *   2) Initialize Firebase manually with [FirebaseOptions] built from the
+ *      runtime config — so we ship NO google-services.json in the APK.
+ *   3) Initialize the rest (Cloudinary, Algolia, FCM) in the background.
+ */
 @HiltAndroidApp
 class EduSpecialApp : Application(), Configuration.Provider {
 
-    @Inject
-    lateinit var workerFactory: androidx.work.WorkerFactory
-    
-    @Inject
-    lateinit var configRepository: com.eduspecial.data.repository.ConfigRepository
-    
-    @Inject
-    lateinit var algoliaSearchService: com.eduspecial.data.remote.search.AlgoliaSearchService
-    
-    @Inject
-    lateinit var notificationRepository: com.eduspecial.data.repository.NotificationRepository
+    @Inject lateinit var workerFactory: androidx.work.WorkerFactory
+    @Inject lateinit var runtimeConfigProvider: RuntimeConfigProvider
+    @Inject lateinit var configRepository: com.eduspecial.data.repository.ConfigRepository
+    @Inject lateinit var algoliaSearchService: com.eduspecial.data.remote.search.AlgoliaSearchService
+    @Inject lateinit var notificationRepository: com.eduspecial.data.repository.NotificationRepository
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
-            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .setMinimumLoggingLevel(Log.INFO)
             .build()
 
     override fun onCreate() {
         super.onCreate()
-        
-        // Initialize Firebase first
-        initializeFirebase()
-        
-        // Then initialize other components
+        bootstrapRuntimeAndFirebase()
         SyncWorker.schedulePeriodicSync(this)
         createNotificationChannels()
-        initializeRemoteConfig()
+        initializeBackgroundServices()
     }
-    
-    private fun initializeFirebase() {
+
+    /**
+     * Synchronous bootstrap: pull cached/remote config and stand up Firebase.
+     * This blocks `onCreate` for at most a few hundred milliseconds when the
+     * cache is warm; on first-ever launch with no internet it will fail and
+     * we surface that via [configRepository.configStatus].
+     */
+    private fun bootstrapRuntimeAndFirebase() = runBlocking {
         try {
-            // Firebase will automatically initialize using google-services.json
-            FirebaseApp.initializeApp(this)
-            Log.d("EduSpecialApp", "✅ Firebase initialized successfully")
-        } catch (e: Exception) {
-            Log.e("EduSpecialApp", "❌ Firebase initialization failed: ${e.message}")
-        }
-    }
-    
-    private fun initializeRemoteConfig() {
-        // Initialize Remote Config in background after Firebase is ready
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val success = configRepository.initializeConfig()
-                if (success) {
-                    Log.d("EduSpecialApp", "✅ Remote Config initialized successfully")
-                    
-                    // Initialize Algolia after Remote Config is ready
-                    initializeAlgolia()
-                    
-                    // Initialize FCM notifications
-                    initializeFCM()
-                } else {
-                    Log.w("EduSpecialApp", "⚠️ Remote Config initialization completed with warnings")
-                }
-            } catch (e: Exception) {
-                Log.e("EduSpecialApp", "❌ Failed to initialize Remote Config: ${e.message}")
+            val ok = runtimeConfigProvider.bootstrap()
+            if (!ok) {
+                Log.e("EduSpecialApp", "❌ Runtime config unavailable — Firebase NOT initialized")
+                return@runBlocking
             }
-        }
-    }
-    
-    private suspend fun initializeAlgolia() {
-        try {
-            val success = algoliaSearchService.initialize()
-            if (success) {
-                Log.d("EduSpecialApp", "✅ Algolia Search initialized successfully")
-            } else {
-                Log.w("EduSpecialApp", "⚠️ Algolia Search disabled (no config)")
+            val fb = runtimeConfigProvider.current?.firebase
+                ?: error("runtime config missing firebase block")
+
+            if (FirebaseApp.getApps(this@EduSpecialApp).isEmpty()) {
+                val options = FirebaseOptions.Builder()
+                    .setApplicationId(fb.applicationId)
+                    .setApiKey(fb.apiKey)
+                    .setProjectId(fb.projectId)
+                    .setGcmSenderId(fb.projectNumber)
+                    .setStorageBucket(fb.storageBucket)
+                    .apply { if (fb.databaseUrl.isNotBlank()) setDatabaseUrl(fb.databaseUrl) }
+                    .build()
+                FirebaseApp.initializeApp(this@EduSpecialApp, options)
+                Log.d("EduSpecialApp", "✅ Firebase initialized from secure runtime config")
             }
         } catch (e: Exception) {
-            Log.e("EduSpecialApp", "❌ Failed to initialize Algolia: ${e.message}")
+            Log.e("EduSpecialApp", "❌ bootstrap failed: ${e.message}", e)
         }
     }
-    
-    private fun initializeFCM() {
+
+    private fun initializeBackgroundServices() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val token = notificationRepository.initializeFCMToken()
-                if (token != null) {
-                    Log.d("EduSpecialApp", "✅ FCM initialized successfully")
-                    
-                    // Subscribe to default topics
+                configRepository.initializeConfig()
+                algoliaSearchService.initialize()
+                notificationRepository.initializeFCMToken()?.let {
                     notificationRepository.subscribeToTopic("general")
                     notificationRepository.subscribeToTopic("new_content")
-                } else {
-                    Log.w("EduSpecialApp", "⚠️ FCM token not available")
                 }
             } catch (e: Exception) {
-                Log.e("EduSpecialApp", "❌ Failed to initialize FCM: ${e.message}")
+                Log.e("EduSpecialApp", "❌ background init: ${e.message}")
             }
         }
     }
@@ -118,11 +104,8 @@ class EduSpecialApp : Application(), Configuration.Provider {
                 NotificationScheduler.CHANNEL_ID,
                 "تذكير المراجعة",
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "إشعارات يومية لتذكيرك بمراجعة البطاقات"
-            }
-            getSystemService(NotificationManager::class.java)
-                .createNotificationChannel(channel)
+            ).apply { description = "إشعارات يومية لتذكيرك بمراجعة البطاقات" }
+            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
 }
