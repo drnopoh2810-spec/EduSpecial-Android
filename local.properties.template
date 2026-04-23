@@ -1,32 +1,19 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # EduSpecial — local.properties template
-# DO NOT COMMIT local.properties. It is listed in .gitignore.
-# Copy this file to local.properties and fill in your real values.
+# ─────────────────────────────────────────────────────────────────────────────
+# NOTE: All runtime keys (Cloudinary, Algolia, Backend URL) are now EMBEDDED
+# inside the app at compile-time via RemoteConfigManager.kt — you do NOT need
+# to set them here anymore. The build no longer depends on local.properties
+# or any CI-injected secret for runtime configuration.
+#
+# This file only configures the Android SDK path for local builds.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Android SDK path (set automatically by Android Studio)
+# Android SDK path (set automatically by Android Studio on first sync)
 sdk.dir=/Users/yourname/Library/Android/sdk
 
-# ── Backend API ───────────────────────────────────────────────────────────────
-# The HuggingFace Space URL — no need to change this
-BASE_API_URL=https://nopoh22-eduspecial-api.hf.space/api/v1/
-
-# ── App API Key ───────────────────────────────────────────────────────────────
-# Must match APP_API_KEY secret in HuggingFace Space Settings → Secrets
-# Ask the project owner for this value
-APP_API_KEY=
-
-# ── Cloudinary ────────────────────────────────────────────────────────────────
-# Only cloud_name is needed in the Android app (for MediaManager init + URL generation)
-# API_KEY and API_SECRET live on the backend (HuggingFace) only — NOT needed here
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-
-# ── Algolia Search ────────────────────────────────────────────────────────────
-# ALGOLIA_APP_ID and ALGOLIA_SEARCH_KEY are used directly by the Android search client
-# ALGOLIA_ADMIN_KEY lives on the backend (HuggingFace) only — NOT needed here
-ALGOLIA_APP_ID=your_algolia_app_id
-ALGOLIA_SEARCH_KEY=your_search_only_api_key
-
-# ── Firebase ──────────────────────────────────────────────────────────────────
-# Place google-services.json in the app/ folder (already in .gitignore)
-# Download from: https://console.firebase.google.com/project/eduspecial/settings/general
+# ─────────────────────────────────────────────────────────────────────────────
+# Firebase configuration is read from app/google-services.json (already in repo)
+# Backend admin Service Account is read from myproject/serviceAccountKey.json
+# (server-side only — NEVER ship admin keys inside the APK)
+# ─────────────────────────────────────────────────────────────────────────────

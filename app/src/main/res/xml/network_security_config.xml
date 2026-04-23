@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <domain-config cleartextTrafficPermitted="false">
-        <!-- EduSpecial Backend on HuggingFace Spaces -->
-        <domain includeSubdomains="true">hf.space</domain>
-        <domain includeSubdomains="true">huggingface.co</domain>
-        <!-- Cloudinary CDN -->
+        <!-- EduSpecial admin/Flask backend (Replit-hosted) -->
+        <domain includeSubdomains="true">replit.app</domain>
+        <domain includeSubdomains="true">replit.dev</domain>
+        <!-- Cloudinary CDN (multi-account uploads & media delivery) -->
         <domain includeSubdomains="true">res.cloudinary.com</domain>
         <domain includeSubdomains="true">api.cloudinary.com</domain>
         <!-- Firebase -->
         <domain includeSubdomains="true">firebaseio.com</domain>
         <domain includeSubdomains="true">googleapis.com</domain>
         <domain includeSubdomains="true">firebase.google.com</domain>
+        <domain includeSubdomains="true">firebaseinstallations.googleapis.com</domain>
         <!-- Algolia Search -->
         <domain includeSubdomains="true">algolia.net</domain>
         <domain includeSubdomains="true">algolianet.com</domain>
