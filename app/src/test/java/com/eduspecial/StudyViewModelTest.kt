@@ -55,7 +55,7 @@ class StudyViewModelTest {
         ttsManager = mock()
         
         // Mock ttsManager state flow to avoid crashes during init
-        whenever(ttsManager.state).thenReturn(MutableStateFlow(TtsManager.TtsState.IDLE))
+        whenever(ttsManager.state).thenReturn(MutableStateFlow(TtsManager.TtsState.READY))
     }
 
     @After
