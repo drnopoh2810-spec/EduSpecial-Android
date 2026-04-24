@@ -5,6 +5,7 @@ import com.eduspecial.data.repository.FlashcardRepository
 import com.eduspecial.domain.model.*
 import com.eduspecial.domain.usecase.RecordReviewUseCase
 import com.eduspecial.presentation.flashcards.StudyViewModel
+import com.eduspecial.utils.TtsManager
 import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.ints.shouldBeExactly
@@ -13,6 +14,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.*
 import org.junit.After
@@ -32,6 +34,7 @@ class StudyViewModelTest {
 
     private lateinit var repository: FlashcardRepository
     private lateinit var recordReviewUseCase: RecordReviewUseCase
+    private lateinit var ttsManager: TtsManager
     private lateinit var viewModel: StudyViewModel
 
     private fun makeCard(id: String) = Flashcard(
@@ -49,6 +52,10 @@ class StudyViewModelTest {
         Dispatchers.setMain(testDispatcher)
         repository = mock()
         recordReviewUseCase = mock()
+        ttsManager = mock()
+        
+        // Mock ttsManager state flow to avoid crashes during init
+        whenever(ttsManager.state).thenReturn(MutableStateFlow(TtsManager.TtsState.IDLE))
     }
 
     @After
@@ -58,7 +65,7 @@ class StudyViewModelTest {
 
     private fun createViewModel(cards: List<Flashcard> = emptyList()): StudyViewModel {
         whenever(repository.getStudyQueue()).thenReturn(flowOf(cards))
-        return StudyViewModel(repository, recordReviewUseCase)
+        return StudyViewModel(repository, recordReviewUseCase, ttsManager)
     }
 
     // ─── Initial State ────────────────────────────────────────────────────────
