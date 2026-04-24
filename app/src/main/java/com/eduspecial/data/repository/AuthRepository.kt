@@ -12,6 +12,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,6 +24,10 @@ class AuthRepository @Inject constructor(
     private val prefs: UserPreferencesDataStore,
     private val roleManager: RoleManager
 ) {
+    companion object {
+        private const val FIRESTORE_SIDE_EFFECT_TIMEOUT_MS = 8_000L
+    }
+
     private val usersCol = firestore.collection("users")
 
     fun getCurrentUserId(): String? = firebaseAuth.currentUser?.uid
@@ -34,11 +39,15 @@ class AuthRepository @Inject constructor(
         return try {
             val result = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val userId = result.user?.uid ?: throw Exception("No user returned")
-            
-            // Update last login time and log security event
-            usersCol.document(userId).update("lastLoginAt", System.currentTimeMillis()).await()
-            roleManager.logSecurityEvent(userId, SecurityEvent.LOGIN)
-            
+
+            // Best-effort: auth must not fail if profile/security logging is unavailable.
+            runCatching {
+                withTimeout(FIRESTORE_SIDE_EFFECT_TIMEOUT_MS) {
+                    usersCol.document(userId).update("lastLoginAt", System.currentTimeMillis()).await()
+                    roleManager.logSecurityEvent(userId, SecurityEvent.LOGIN)
+                }
+            }
+
             Result.success(userId)
         } catch (e: Exception) { 
             // Log failed login attempt if we can identify the user
@@ -62,10 +71,11 @@ class AuthRepository @Inject constructor(
             // Update Firebase Auth display name
             user.updateProfile(userProfileChangeRequest { this.displayName = displayName }).await()
 
-            // Initialize user profile with role management
-            val success = roleManager.initializeUserProfile(user.uid, email, displayName)
-            if (!success) {
-                throw Exception("Failed to initialize user profile")
+            // Best-effort: keep registration successful even if profile bootstrap is delayed.
+            runCatching {
+                withTimeout(FIRESTORE_SIDE_EFFECT_TIMEOUT_MS) {
+                    roleManager.initializeUserProfile(user.uid, email, displayName)
+                }
             }
 
             Result.success(user.uid)

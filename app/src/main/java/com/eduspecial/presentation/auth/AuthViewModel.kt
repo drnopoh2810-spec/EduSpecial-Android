@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.eduspecial.data.remote.secure.RuntimeConfigProvider
 import com.eduspecial.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 data class AuthCurrentUser(
@@ -35,6 +37,10 @@ class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     runtimeConfigProvider: RuntimeConfigProvider
 ) : ViewModel() {
+    companion object {
+        private const val AUTH_OPERATION_TIMEOUT_MS = 15_000L
+    }
+
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
@@ -197,9 +203,20 @@ class AuthViewModel @Inject constructor(
                     isPasswordResetSent = if (resetPasswordState) false else it.isPasswordResetSent
                 )
             }
-            call()
-                .onSuccess { value -> onSuccess(value) }
-                .onFailure { e -> onFailure(e) }
+            try {
+                withTimeout(AUTH_OPERATION_TIMEOUT_MS) {
+                    call()
+                        .onSuccess { value -> onSuccess(value) }
+                        .onFailure { e -> onFailure(e) }
+                }
+            } catch (_: TimeoutCancellationException) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "انتهت مهلة الاتصال. تحقق من الإنترنت ثم أعد المحاولة."
+                    )
+                }
+            }
         }
     }
 

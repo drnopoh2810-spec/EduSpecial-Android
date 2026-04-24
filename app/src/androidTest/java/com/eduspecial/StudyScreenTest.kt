@@ -8,6 +8,7 @@ import com.eduspecial.presentation.flashcards.StudyScreen
 import com.eduspecial.presentation.theme.EduSpecialTheme
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test

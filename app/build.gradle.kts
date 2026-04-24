@@ -177,6 +177,7 @@ dependencies {
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.51.1")
     kspAndroidTest("com.google.dagger:hilt-compiler:2.51.1")
     androidTestImplementation("androidx.room:room-testing:2.6.1")
+    androidTestImplementation("androidx.work:work-testing:2.9.1")
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
