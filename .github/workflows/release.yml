@@ -54,6 +54,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Sync with latest main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --rebase origin main
+
       - name: Bump Android version
         id: bump
         shell: bash
@@ -74,7 +80,6 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull --rebase origin main
           git add app/build.gradle.kts
           if git diff --cached --quiet; then
             echo "No version changes detected after bump script."
