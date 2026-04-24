@@ -2,6 +2,7 @@ package com.eduspecial.presentation.common
 
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 
@@ -67,21 +69,26 @@ fun MediaPlayerView(
     ) {
         AndroidView(
             factory = { ctx ->
-                PlayerView(ctx).apply {
-                    player = exoPlayer
-                    useController = true
-                    layoutParams = FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    if (isAudio) {
-                        controllerShowTimeoutMs = 0
-                        controllerHideOnTouch = false
-                    }
-                }
+                createPlayerView(ctx, exoPlayer, isAudio)
             },
             modifier = Modifier.fillMaxSize()
         )
+    }
+}
+
+@OptIn(UnstableApi::class)
+private fun createPlayerView(context: android.content.Context, exoPlayer: ExoPlayer, isAudio: Boolean): PlayerView {
+    return PlayerView(context).apply {
+        player = exoPlayer
+        useController = true
+        layoutParams = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        if (isAudio) {
+            controllerShowTimeoutMs = 0
+            controllerHideOnTouch = false
+        }
     }
 }
 
