@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Google Sign-In Web Client ID is fetched at runtime from the secure config
+      channel (/api/v1/config) — see firebase.web_client_id in config.json.
+      This placeholder is kept empty so legacy `R.string.google_web_client_id`
+      lookups never expose a real OAuth identifier in the APK.
+    -->
+    <string name="google_web_client_id" translatable="false"></string>
+</resources>

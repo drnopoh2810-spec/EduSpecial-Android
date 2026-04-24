@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "991388117026",
+    "project_id": "eduspecial",
+    "storage_bucket": "eduspecial.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:991388117026:android:30feea55f83c54bb1fc27b",
+        "android_client_info": {
+          "package_name": "com.eduspecial.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "991388117026-dmmg53umtu4tapp7mtv7poc5d5mkhnq3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD8YLaEEfHQdTIOFDvI7aVkjVqnXAZnRRU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "991388117026-dmmg53umtu4tapp7mtv7poc5d5mkhnq3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

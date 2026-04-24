@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <!-- EduSpecial API Backend -->
+        <domain includeSubdomains="true">pythonanywhere.com</domain>
+        <!-- Cloudinary CDN -->
+        <domain includeSubdomains="true">res.cloudinary.com</domain>
+        <domain includeSubdomains="true">api.cloudinary.com</domain>
+        <!-- Firebase -->
+        <domain includeSubdomains="true">firebaseio.com</domain>
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">firebase.google.com</domain>
+        <domain includeSubdomains="true">firebaseinstallations.googleapis.com</domain>
+        <!-- Algolia Search -->
+        <domain includeSubdomains="true">algolia.net</domain>
+        <domain includeSubdomains="true">algolianet.com</domain>
+    </domain-config>
+</network-security-config>
