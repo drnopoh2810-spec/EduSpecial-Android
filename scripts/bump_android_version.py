@@ -52,7 +52,9 @@ def main() -> int:
         print("Provide exactly one of --bump or --set-version", file=sys.stderr)
         return 1
 
-    content = BUILD_GRADLE.read_text(encoding="utf-8")
+    raw = BUILD_GRADLE.read_text(encoding="utf-8")
+    line_ending = "\r\n" if "\r\n" in raw else "\n"
+    content = raw
 
     code_match = re.search(r"versionCode\s*=\s*(\d+)", content)
     name_match = re.search(r'versionName\s*=\s*"([^"]+)"', content)
@@ -73,7 +75,10 @@ def main() -> int:
 
     updated = re.sub(r"versionCode\s*=\s*\d+", f"versionCode = {new_code}", content, count=1)
     updated = re.sub(r'versionName\s*=\s*"[^"]+"', f'versionName = "{new_name}"', updated, count=1)
-    BUILD_GRADLE.write_text(updated, encoding="utf-8")
+    normalized = updated.replace("\r\n", "\n")
+    if line_ending == "\r\n":
+        normalized = normalized.replace("\n", "\r\n")
+    BUILD_GRADLE.write_text(normalized, encoding="utf-8")
 
     print(f"version_name={new_name}")
     print(f"version_code={new_code}")
