@@ -103,41 +103,55 @@ class UpdateViewModel @Inject constructor(
             val query = DownloadManager.Query().setFilterById(downloadId)
             val cursor = dm.query(query)
 
-            if (!cursor.moveToFirst()) {
-                cursor.close()
+            if (cursor == null || !cursor.moveToFirst()) {
+                cursor?.close()
                 _state.value = UpdateState.Error("انقطع التنزيل. يرجى المحاولة مرة أخرى.")
                 break
             }
 
-            val status    = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_STATUS))
-            val downloaded = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
-            val total     = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
-            val localUri  = cursor.getString(cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI))
-            val reason    = cursor.getInt(cursor.getColumnIndex(DownloadManager.COLUMN_REASON))
-            cursor.close()
+            try {
+                val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                val downloadedIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                val totalIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                val localUriIdx = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_URI)
+                val reasonIdx = cursor.getColumnIndex(DownloadManager.COLUMN_REASON)
 
-            when (status) {
-                DownloadManager.STATUS_RUNNING,
-                DownloadManager.STATUS_PENDING -> {
-                    val progress = if (total > 0) ((downloaded * 100) / total).toInt() else 0
-                    _state.value = UpdateState.Downloading(progress)
-                    delay(500)
-                }
-                DownloadManager.STATUS_SUCCESSFUL -> {
-                    Log.d(TAG, "Download complete: $localUri")
-                    _state.value = UpdateState.ReadyToInstall(localUri ?: "")
-                    // Trigger install immediately — don't wait for BroadcastReceiver
-                    localUri?.let { triggerInstallFromUri(it) }
+                if (statusIdx == -1 || downloadedIdx == -1 || totalIdx == -1 || localUriIdx == -1 || reasonIdx == -1) {
+                    _state.value = UpdateState.Error("خطأ في قراءة بيانات التنزيل.")
                     break
                 }
-                DownloadManager.STATUS_FAILED -> {
-                    Log.e(TAG, "Download failed, reason=$reason")
-                    _state.value = UpdateState.Error(
-                        "فشل التنزيل (رمز الخطأ: $reason). يرجى المحاولة مرة أخرى."
-                    )
-                    break
+
+                val status = cursor.getInt(statusIdx)
+                val downloaded = cursor.getLong(downloadedIdx)
+                val total = cursor.getLong(totalIdx)
+                val localUri = cursor.getString(localUriIdx)
+                val reason = cursor.getInt(reasonIdx)
+
+                when (status) {
+                    DownloadManager.STATUS_RUNNING,
+                    DownloadManager.STATUS_PENDING -> {
+                        val progress = if (total > 0) ((downloaded * 100) / total).toInt() else 0
+                        _state.value = UpdateState.Downloading(progress)
+                        delay(500)
+                    }
+                    DownloadManager.STATUS_SUCCESSFUL -> {
+                        Log.d(TAG, "Download complete: $localUri")
+                        _state.value = UpdateState.ReadyToInstall(localUri ?: "")
+                        // Trigger install immediately — don't wait for BroadcastReceiver
+                        localUri?.let { triggerInstallFromUri(it) }
+                        break
+                    }
+                    DownloadManager.STATUS_FAILED -> {
+                        Log.e(TAG, "Download failed, reason=$reason")
+                        _state.value = UpdateState.Error(
+                            "فشل التنزيل (رمز الخطأ: $reason). يرجى المحاولة مرة أخرى."
+                        )
+                        break
+                    }
+                    else -> delay(500)
                 }
-                else -> delay(500)
+            } finally {
+                cursor.close()
             }
         }
     }
