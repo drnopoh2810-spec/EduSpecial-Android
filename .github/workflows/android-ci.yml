@@ -74,26 +74,11 @@ jobs:
           if-no-files-found: warn
 
       - name: SonarQube scan
-        if: ${{ env.HAS_SONAR == 'true' }}
         env:
-          HAS_SONAR: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         run: |
           ./gradlew sonar \
             -Dsonar.host.url="$SONAR_HOST_URL" \
             -Dsonar.login="$SONAR_TOKEN"
-
-      - name: Notify success
-        if: ${{ success() && secrets.SLACK_WEBHOOK_URL != '' }}
-        run: |
-          curl -X POST -H "Content-type: application/json" \
-            --data "{\"text\":\"✅ Android CI passed for ${GITHUB_REPOSITORY} on ${GITHUB_REF_NAME}.\"}" \
-            "${{ secrets.SLACK_WEBHOOK_URL }}"
-
-      - name: Notify failure
-        if: ${{ failure() && secrets.SLACK_WEBHOOK_URL != '' }}
-        run: |
-          curl -X POST -H "Content-type: application/json" \
-            --data "{\"text\":\"❌ Android CI failed for ${GITHUB_REPOSITORY} on ${GITHUB_REF_NAME}. Check workflow run logs.\"}" \
-            "${{ secrets.SLACK_WEBHOOK_URL }}"
