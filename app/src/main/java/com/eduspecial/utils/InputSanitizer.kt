@@ -14,6 +14,8 @@ object InputSanitizer {
     private const val MAX_ANSWER_LENGTH     = 3000
     private const val MAX_NAME_LENGTH       = 50
     private const val MIN_NAME_LENGTH       = 2
+    // Keep email validation JVM-safe for local unit tests (no android.util.Patterns dependency).
+    private val EMAIL_REGEX = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
     // ─── Text Sanitization ────────────────────────────────────────────────────
 
@@ -104,7 +106,7 @@ object InputSanitizer {
      */
     fun validateEmail(email: String): Result<String> {
         val clean = email.trim().lowercase()
-        return if (android.util.Patterns.EMAIL_ADDRESS.matcher(clean).matches()) {
+        return if (EMAIL_REGEX.matches(clean)) {
             Result.success(clean)
         } else {
             Result.failure(IllegalArgumentException("بريد إلكتروني غير صحيح"))

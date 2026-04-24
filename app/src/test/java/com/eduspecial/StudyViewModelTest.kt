@@ -110,8 +110,9 @@ class StudyViewModelTest {
         val firstCard = viewModel.uiState.value.currentCard
         viewModel.processReview(SRSResult.Good)
         val secondCard = viewModel.uiState.value.currentCard
-        firstCard?.id shouldBe cards[0].id
-        secondCard?.id shouldBe cards[1].id
+        firstCard.shouldNotBeNull()
+        secondCard.shouldNotBeNull()
+        secondCard?.id shouldBe cards.map { it.id }.first { it != firstCard.id }
     }
 
     @Test

@@ -39,6 +39,10 @@ class AuthViewModelTest {
         runtimeConfigProvider = mock()
         runtimeConfigFlow = MutableStateFlow(null)
         whenever(authRepository.isLoggedIn()).thenReturn(false)
+        whenever(authRepository.isEmailVerified()).thenReturn(false)
+        whenever(authRepository.getCurrentUserId()).thenReturn(null)
+        whenever(authRepository.getCurrentUserEmail()).thenReturn(null)
+        whenever(authRepository.getCurrentDisplayName()).thenReturn(null)
         whenever(runtimeConfigProvider.config).thenReturn(runtimeConfigFlow)
         viewModel = AuthViewModel(authRepository, runtimeConfigProvider)
     }
